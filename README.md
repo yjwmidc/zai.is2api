@@ -1,6 +1,6 @@
 # Zai.is API Gateway
 
-这是一个将 zai.is (OpenWebUI based) 封装为 OpenAI 兼容 API (/v1/chat/completions) 的私有网关。
+这是一个将 zai.is 封装为 OpenAI 兼容 API 的私有网关。
 
 ## 功能特性
 
