@@ -1,6 +1,7 @@
 import logging
 import json
 import time
+import uuid
 from typing import AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -63,7 +64,6 @@ async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = De
     zai_client = ZaiClient(token)
     
     # Generate ID for response
-    import uuid
     chat_id = f"chatcmpl-{uuid.uuid4()}"
     
     if request.stream:
@@ -81,7 +81,8 @@ async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = De
              if "401" in str(e):
                  await mark_token_invalid(token)
                  raise HTTPException(status_code=401, detail="Upstream authentication failed")
-             raise HTTPException(status_code=500, detail=str(e))
+             # Do not expose internal error details to client
+             raise HTTPException(status_code=500, detail="An internal server error occurred.")
              
         response = ChatCompletionResponse(
             id=chat_id,

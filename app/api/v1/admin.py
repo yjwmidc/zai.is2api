@@ -13,7 +13,7 @@ class AccountCreate(BaseModel):
 
 class AccountResponse(BaseModel):
     id: int
-    discord_token: str # Security warning: Should probably mask this in real prod
+    # discord_token: str # SECURITY: This field is commented out to prevent leaking sensitive credentials.
     is_active: bool
     last_error: str | None = None
 

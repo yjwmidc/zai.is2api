@@ -10,7 +10,32 @@ from app.schemas.openai import Message
 
 logger = logging.getLogger(__name__)
 
+class ZaiAuthError(Exception):
+    """Raised when Zai API returns 401 Unauthorized"""
+    pass
+
+class ZaiAPIError(Exception):
+    """Raised when Zai API returns other errors"""
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        self.message = message
+        super().__init__(f"Zai API returned {status_code}: {message}")
+
 class ZaiClient:
+    _client: httpx.AsyncClient = None
+
+    @classmethod
+    def get_client(cls) -> httpx.AsyncClient:
+        if cls._client is None or cls._client.is_closed:
+            cls._client = httpx.AsyncClient(timeout=120.0)
+        return cls._client
+
+    @classmethod
+    async def close_client(cls):
+        if cls._client and not cls._client.is_closed:
+            await cls._client.aclose()
+            cls._client = None
+
     def __init__(self, token: str):
         self.token = token
         self.headers = {
@@ -115,17 +140,17 @@ class ZaiClient:
         # Update Referer with the specific chat ID
         self.headers["Referer"] = f"{settings.ZAI_BASE_URL}/c/{chat_id}"
 
-        async with httpx.AsyncClient() as client:
-            try:
-                async with client.stream("POST", url, json=payload, headers=self.headers, timeout=120.0) as response:
-                    if response.status_code != 200:
-                        error_text = await response.aread()
-                        logger.error(f"Zai API Error: {response.status_code} - {error_text}")
-                        if response.status_code == 401:
-                             raise Exception("401 Unauthorized")
-                        raise Exception(f"Zai API returned {response.status_code}")
+        client = self.get_client()
+        try:
+            async with client.stream("POST", url, json=payload, headers=self.headers) as response:
+                if response.status_code != 200:
+                    error_text = await response.aread()
+                    logger.error(f"Zai API Error: {response.status_code} - {error_text}")
+                    if response.status_code == 401:
+                            raise ZaiAuthError("401 Unauthorized")
+                    raise ZaiAPIError(response.status_code, str(error_text))
 
-                    async for line in response.aiter_lines():
+                async for line in response.aiter_lines():
                         if not line:
                             continue
                         
