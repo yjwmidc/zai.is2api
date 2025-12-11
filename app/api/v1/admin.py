@@ -32,7 +32,7 @@ async def login(response: Response, password: str = Body(..., embed=True)):
     expected = settings.ADMIN_API_KEY
     if not expected:
         raise HTTPException(status_code=500, detail="Admin key not configured")
-    if password == expected:
+    if hmac.compare_digest(password, expected):
         session_token = _get_admin_session_token()
         response.set_cookie(
             key="admin_session",
