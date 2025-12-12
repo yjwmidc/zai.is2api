@@ -22,6 +22,15 @@ def get_zai_token_key(discord_token_hash: str) -> str:
 def get_zai_limit_key(discord_token_hash: str) -> str:
     return f"zai:limit:{discord_token_hash}"
 
+def get_zai_stats_key(discord_token_hash: str) -> str:
+    return f"zai:stats:{discord_token_hash}"
+
+async def increment_token_stats(discord_token_hash: str, success: bool = True):
+    redis = await get_redis()
+    key = get_zai_stats_key(discord_token_hash)
+    field = "success" if success else "failure"
+    await redis.hincrby(key, field, 1)
+
 async def refresh_account_token(session: AsyncSession, account: Account) -> bool:
     """
     Refresh Zai token for a specific account.
@@ -74,10 +83,10 @@ async def refresh_account_token(session: AsyncSession, account: Account) -> bool
         
     return True
 
-async def get_valid_zai_token(session: AsyncSession) -> Optional[str]:
+async def get_valid_zai_token(session: AsyncSession) -> Optional[tuple[str, str]]:
     """
     Get a valid, rate-limit-free Zai token.
-    Implements Round-Robin load balancing via Redis or Random selection.
+    Returns (zai_token, discord_token_hash) or None.
     """
     redis = await get_redis()
     
@@ -118,7 +127,7 @@ async def get_valid_zai_token(session: AsyncSession) -> Optional[str]:
         # Ideally: set(limit_key, 1, ex=60, nx=True)
         acquired = await redis.set(limit_key, "1", ex=60, nx=True)
         if acquired:
-            return zai_token
+            return zai_token, token_hash
             
     return None
 
@@ -139,3 +148,6 @@ async def mark_token_invalid(zai_token: str):
         token_key = get_zai_token_key(discord_token_hash)
         await redis.delete(token_key)
         await redis.delete(reverse_key)
+        
+        # Increment failure stats
+        await increment_token_stats(discord_token_hash, success=False)

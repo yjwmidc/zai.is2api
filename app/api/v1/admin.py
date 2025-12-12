@@ -11,6 +11,8 @@ from app.db.session import get_db
 from app.db.redis import get_redis
 from app.models.account import Account
 from app.models.log import RequestLog
+from app.models.system import SystemConfig, ApiKey
+from app.services.token_manager import get_token_hash, get_zai_stats_key
 
 router = APIRouter()
 
@@ -59,12 +61,51 @@ async def verify_admin(admin_session: str | None = Cookie(None)):
 
 @router.get("/stats", dependencies=[Depends(verify_admin)])
 async def get_stats(db: AsyncSession = Depends(get_db)):
+    # Basic Stats
     account_count = await db.scalar(select(func.count(Account.id)))
     active_account_count = await db.scalar(select(func.count(Account.id)).where(Account.is_active))
     request_count = await db.scalar(select(func.count(RequestLog.id)))
     
+    # Model Usage Stats (Top 5)
+    model_stats_stmt = (
+        select(RequestLog.model, func.count(RequestLog.id))
+        .group_by(RequestLog.model)
+        .order_by(func.count(RequestLog.id).desc())
+        .limit(5)
+    )
+    model_stats_result = await db.execute(model_stats_stmt)
+    model_usage = [{"model": r[0], "count": r[1]} for r in model_stats_result.all()]
+
+    # Zai Token Stats (Active Tokens and their success/failure)
     redis = await get_redis()
     active_tokens = 0
+    token_stats = []
+    
+    # Get all active accounts to map stats
+    stmt = select(Account).where(Account.is_active == True)
+    result = await db.execute(stmt)
+    accounts = result.scalars().all()
+
+    for account in accounts:
+        token_hash = get_token_hash(account.discord_token)
+        stats_key = get_zai_stats_key(token_hash)
+        
+        # Check if active in Redis (optional, but good to know)
+        # exists = await redis.exists(get_zai_token_key(token_hash))
+        
+        stats = await redis.hgetall(stats_key)
+        success = int(stats.get("success", 0))
+        failure = int(stats.get("failure", 0))
+        
+        if success > 0 or failure > 0:
+            token_stats.append({
+                "account_id": account.id,
+                "token_preview": account.discord_token[:10] + "...",
+                "success": success,
+                "failure": failure
+            })
+            
+    # Count redis active tokens simply
     async for _ in redis.scan_iter(match="zai:token:*", count=100):
         active_tokens += 1
     
@@ -72,7 +113,9 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "total_accounts": account_count,
         "active_accounts": active_account_count,
         "active_zai_tokens": active_tokens,
-        "total_requests": request_count
+        "total_requests": request_count,
+        "model_usage": model_usage,
+        "token_stats": token_stats
     }
 
 # --- Logs ---

@@ -79,33 +79,89 @@
                     </div>
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-4">
                         
-                        <!-- Dashboard -->
+                        <!-- Dashboard (Stats) -->
                         <div x-show="currentTab === 'dashboard'">
+                            <!-- Basic Stats -->
                             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                                <!-- Stats Cards -->
                                 <div class="bg-white overflow-hidden shadow rounded-lg">
                                     <div class="px-4 py-5 sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">Total Accounts</dt>
-                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.total_accounts || 0"></dd>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">总请求数</dt>
+                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.total_requests || 0"></dd>
                                     </div>
                                 </div>
                                 <div class="bg-white overflow-hidden shadow rounded-lg">
                                     <div class="px-4 py-5 sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">Active Accounts</dt>
-                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.active_accounts || 0"></dd>
-                                    </div>
-                                </div>
-                                <div class="bg-white overflow-hidden shadow rounded-lg">
-                                    <div class="px-4 py-5 sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">Active Zai Tokens</dt>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">活跃 Zai Token</dt>
                                         <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.active_zai_tokens || 0"></dd>
                                     </div>
                                 </div>
                                 <div class="bg-white overflow-hidden shadow rounded-lg">
                                     <div class="px-4 py-5 sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">Total Requests</dt>
-                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.total_requests || 0"></dd>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">总账号数</dt>
+                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.total_accounts || 0"></dd>
                                     </div>
+                                </div>
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="px-4 py-5 sm:p-6">
+                                        <dt class="text-sm font-medium text-gray-500 truncate">活跃账号数</dt>
+                                        <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.active_accounts || 0"></dd>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Model Usage -->
+                            <div class="bg-white shadow sm:rounded-lg p-6 mb-8">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">模型调用统计 (Top 5)</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">模型</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">调用次数</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <template x-for="item in stats.model_usage || []" :key="item.model">
+                                                <tr>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="item.model"></td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="item.count"></td>
+                                                </tr>
+                                            </template>
+                                            <tr x-show="!stats.model_usage || stats.model_usage.length === 0">
+                                                <td colspan="2" class="px-6 py-4 text-center text-sm text-gray-500">暂无数据</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Zai Token Stats -->
+                            <div class="bg-white shadow sm:rounded-lg p-6">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Zai Token 调用统计 (仅展示有记录的)</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account ID</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Token 预览</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">成功次数</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">失败次数</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <template x-for="item in stats.token_stats || []" :key="item.account_id">
+                                                <tr>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="item.account_id"></td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500" x-text="item.token_preview"></td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold" x-text="item.success"></td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-bold" x-text="item.failure"></td>
+                                                </tr>
+                                            </template>
+                                            <tr x-show="!stats.token_stats || stats.token_stats.length === 0">
+                                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">暂无统计数据</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -296,14 +352,15 @@
         function app() {
             return {
                 authenticated: false,
+                apiBase: '/v1',
                 loginPassword: '',
                 currentTab: 'dashboard',
                 menuItems: [
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'accounts', label: 'Discord Accounts' },
-                    { id: 'tokens', label: 'Zai Tokens (Redis)' },
-                    { id: 'logs', label: 'Request Logs' },
-                    { id: 'config', label: 'Configuration' }
+                    { id: 'dashboard', label: '使用统计 (Stats)' },
+                    { id: 'config', label: '配置管理 (Config)' },
+                    { id: 'accounts', label: 'Discord Token 管理' },
+                    { id: 'tokens', label: 'Zai Token 管理' },
+                    { id: 'logs', label: '日志查看 (Logs)' }
                 ],
                 stats: {},
                 accounts: [],
@@ -344,7 +401,7 @@
 
                 async login() {
                     try {
-                        const res = await fetch('/v1/admin/login', {
+                        const res = await fetch(`${this.apiBase}/login`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ password: this.loginPassword })
@@ -362,14 +419,14 @@
                 },
 
                 async logout() {
-                    await fetch('/v1/admin/logout', { method: 'POST' });
+                    await fetch(`${this.apiBase}/logout`, { method: 'POST' });
                     this.authenticated = false;
                     this.loginPassword = '';
                 },
 
                 async fetchStats() {
                     try {
-                        const res = await fetch('/v1/admin/stats');
+                        const res = await fetch(`${this.apiBase}/stats`);
                         if (res.status === 401) {
                             this.authenticated = false;
                             return;
@@ -382,13 +439,13 @@
                 },
 
                 async fetchAccounts() {
-                    const res = await fetch('/v1/admin/accounts');
+                    const res = await fetch(`${this.apiBase}/accounts`);
                     if (res.ok) this.accounts = await res.json();
                 },
 
                 async addAccount() {
                     if (!this.newDiscordToken) return;
-                    const res = await fetch('/v1/admin/accounts', {
+                    const res = await fetch(`${this.apiBase}/accounts`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ discord_token: this.newDiscordToken })
@@ -404,17 +461,17 @@
 
                 async deleteAccount(id) {
                     if(!confirm("Sure?")) return;
-                    const res = await fetch(`/v1/admin/accounts/${id}`, { method: 'DELETE' });
+                    const res = await fetch(`${this.apiBase}/accounts/${id}`, { method: 'DELETE' });
                     if(res.ok) this.fetchAccounts();
                 },
 
                 async fetchZaiTokens() {
-                    const res = await fetch('/v1/admin/zai-tokens');
+                    const res = await fetch(`${this.apiBase}/zai-tokens`);
                     if (res.ok) this.zaiTokens = await res.json();
                 },
 
                 async fetchLogs() {
-                    let url = '/v1/admin/logs?limit=50';
+                    let url = `${this.apiBase}/logs?limit=50`;
                     if (this.logSearch) url += `&search=${encodeURIComponent(this.logSearch)}`;
                     if (this.logOnlyErrors) url += `&only_errors=true`;
                     
@@ -424,7 +481,7 @@
 
                 async clearLogs() {
                     if (!confirm("Are you sure you want to clear all logs?")) return;
-                    const res = await fetch('/v1/admin/logs', { method: 'DELETE' });
+                    const res = await fetch(`${this.apiBase}/logs`, { method: 'DELETE' });
                     if (res.ok) this.fetchLogs();
                 },
                 
@@ -457,7 +514,7 @@
                 },
 
                 async fetchConfig() {
-                    const res = await fetch('/v1/admin/config');
+                    const res = await fetch(`${this.apiBase}/config`);
                     if (res.ok) this.config = await res.json();
                 }
             }

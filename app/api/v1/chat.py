@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.openai import ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk, ChatCompletionChunkChoice, ChatCompletionChoice, Message
-from app.services.token_manager import get_valid_zai_token, mark_token_invalid
+from app.services.token_manager import get_valid_zai_token, mark_token_invalid, increment_token_stats
 from app.services.zai_client import ZaiClient
 from app.db.session import get_db
 from app.models.log import RequestLog
@@ -30,7 +30,7 @@ async def log_request(db: AsyncSession, model: str, chat_id: str, status_code: i
     except Exception as e:
         logger.error(f"Failed to save request log: {e}")
 
-async def generate_chunks(zai_client: ZaiClient, request: ChatCompletionRequest, chat_id: str, db: AsyncSession, start_time: float):
+async def generate_chunks(zai_client: ZaiClient, request: ChatCompletionRequest, chat_id: str, db: AsyncSession, start_time: float, token_hash: str):
     error_msg = None
     status_code = 200
     try:
@@ -63,6 +63,9 @@ async def generate_chunks(zai_client: ZaiClient, request: ChatCompletionRequest,
         yield f"data: {chunk.json()}\n\n"
         yield "data: [DONE]\n\n"
         
+        # Success
+        await increment_token_stats(token_hash, success=True)
+        
     except Exception as e:
         logger.error(f"Stream generation error: {e}")
         error_msg = str(e)
@@ -71,6 +74,10 @@ async def generate_chunks(zai_client: ZaiClient, request: ChatCompletionRequest,
              status_code = 401
              # Trigger invalidation
              await mark_token_invalid(zai_client.token)
+        
+        # Failure (if not success)
+        await increment_token_stats(token_hash, success=False)
+        
         # We can't easily return error in SSE, usually just close stream or send error event
     finally:
         duration = (time.time() - start_time) * 1000
@@ -80,11 +87,13 @@ async def generate_chunks(zai_client: ZaiClient, request: ChatCompletionRequest,
 async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = Depends(get_db)):
     start_time = time.time()
     # 1. Get Valid Token (1 RPM limit enforced inside)
-    token = await get_valid_zai_token(db)
+    result = await get_valid_zai_token(db)
     
-    if not token:
+    if not result:
         await log_request(db, request.model, "N/A", 429, (time.time() - start_time) * 1000, "No available tokens")
         raise HTTPException(status_code=429, detail="No available tokens or rate limit exceeded. Please try again later.")
+    
+    token, token_hash = result
     
     zai_client = ZaiClient(token)
     
@@ -93,7 +102,7 @@ async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = De
     
     if request.stream:
         return StreamingResponse(
-            generate_chunks(zai_client, request, chat_id, db, start_time),
+            generate_chunks(zai_client, request, chat_id, db, start_time, token_hash),
             media_type="text/event-stream"
         )
     else:
@@ -104,6 +113,9 @@ async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = De
         try:
             async for content_delta in zai_client.stream_chat(request.messages, request.model):
                 full_content += content_delta
+                
+            await increment_token_stats(token_hash, success=True)
+            
         except Exception as e:
              error_msg = str(e)
              status_code = 500
@@ -112,6 +124,9 @@ async def chat_completions(request: ChatCompletionRequest, db: AsyncSession = De
                  await mark_token_invalid(token)
                  await log_request(db, request.model, chat_id, status_code, (time.time() - start_time) * 1000, "Upstream authentication failed")
                  raise HTTPException(status_code=401, detail="Upstream authentication failed")
+             
+             await increment_token_stats(token_hash, success=False)
+             
              # Do not expose internal error details to client
              await log_request(db, request.model, chat_id, status_code, (time.time() - start_time) * 1000, error_msg)
              raise HTTPException(status_code=500, detail="An internal server error occurred.")

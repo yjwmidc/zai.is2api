@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     PROJECT_NAME: str = "zai.is2api"
     API_V1_STR: str = "/v1"
-    ADMIN_API_KEY: str = ""
+    ADMIN_API_KEY: str = "114514"
     
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/zai_gateway.db"
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     TOKEN_REFRESH_INTERVAL: int = 60  # seconds
     ZAI_TOKEN_TTL_BUFFER: int = 600   # 10 minutes buffer for refresh
     ZAI_TOKEN_TTL: int = 10200        # 2h 50m (approx 3h total)
+    ZAI_RETRY_COUNT: int = 3          # default retry count
     
     class Config:
         env_file = ".env"

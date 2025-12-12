@@ -11,6 +11,7 @@ from app.services.zai_client import ZaiClient
 # Import models to register them with Base
 from app.models.account import Account
 from app.models.log import RequestLog
+from app.models.system import SystemConfig, ApiKey
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
