@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理控制台 - Zai2API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slide-up{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        .animate-slide-up{animation:slide-up .3s ease-out}
+        .tab-active{border-bottom-color:hsl(0 0% 9%);color:hsl(0 0% 9%)}
+        .tab-inactive{border-bottom-color:transparent;color:hsl(0 0% 45.1%)}
+    </style>
+    <script>
+        tailwind.config={theme:{extend:{colors:{border:"hsl(0 0% 89%)",input:"hsl(0 0% 89%)",ring:"hsl(0 0% 3.9%)",background:"hsl(0 0% 100%)",foreground:"hsl(0 0% 3.9%)",primary:{DEFAULT:"hsl(0 0% 9%)",foreground:"hsl(0 0% 98%)"},secondary:{DEFAULT:"hsl(0 0% 96.1%)",foreground:"hsl(0 0% 9%)"},muted:{DEFAULT:"hsl(0 0% 96.1%)",foreground:"hsl(0 0% 45.1%)"},destructive:{DEFAULT:"hsl(0 84.2% 60.2%)",foreground:"hsl(0 0% 98%)"}}}}}
+    </script>
+</head>
+<body class="h-full bg-background text-foreground antialiased flex flex-col">
+    <!-- Navbar -->
+    <header class="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur">
+        <div class="container mx-auto flex h-14 items-center px-4">
+            <span class="font-bold text-xl mr-8">Zai2API</span>
+            <div class="flex-1"></div>
+            <div class="flex items-center gap-4">
+                <a href="https://github.com/Futureppo/zai.is2api" target="_blank" class="text-sm hover:underline">GitHub</a>
+                <button onclick="logout()" class="text-sm hover:underline text-destructive">登出</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 container mx-auto px-4 py-6">
+        <!-- Tabs -->
+        <div class="flex border-b border-border mb-6">
+            <button onclick="switchTab('tokens')" id="tab-tokens" class="px-4 py-2 text-sm font-medium border-b-2 tab-active transition-colors">Token 管理</button>
+            <button onclick="switchTab('settings')" id="tab-settings" class="px-4 py-2 text-sm font-medium border-b-2 tab-inactive transition-colors">系统配置</button>
+            <button onclick="switchTab('logs')" id="tab-logs" class="px-4 py-2 text-sm font-medium border-b-2 tab-inactive transition-colors">请求日志</button>
+        </div>
+
+        <!-- Token Management -->
+        <div id="view-tokens" class="space-y-6">
+            <!-- Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="p-4 border rounded-lg bg-card">
+                    <div class="text-sm text-muted-foreground">Token 总数</div>
+                    <div class="text-2xl font-bold" id="stat-total-tokens">-</div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex justify-end gap-2">
+                <button onclick="openAddTokenModal()" class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground h-9 px-4 text-sm font-medium hover:bg-primary/90">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    新增 Token
+                        </button>
+                <button onclick="loadTokens()" class="inline-flex items-center justify-center rounded-md border border-input bg-background h-9 px-4 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    刷新
+                        </button>
+                </div>
+                
+            <!-- Table -->
+            <div class="rounded-md border border-border overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                            <tr>
+                                <th class="h-10 px-4 align-middle">discordtoken</th>
+                                <th class="h-10 px-4 align-middle">状态</th>
+                                <th class="h-10 px-4 align-middle">zaitoken</th>
+                                <th class="h-10 px-4 align-middle">剩余刷新时间</th>
+                                <th class="h-10 px-4 align-middle">类型</th>
+                                <th class="h-10 px-4 align-middle">错误</th>
+                                <th class="h-10 px-4 align-middle">备注</th>
+                                <th class="h-10 px-4 align-middle text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tokens-table-body" class="divide-y divide-border">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Settings -->
+        <div id="view-settings" class="hidden grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+            <!-- Security Config -->
+            <div class="p-6 border rounded-lg bg-card space-y-4">
+                <h3 class="font-semibold text-lg">安全配置</h3>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">管理员用户名</label>
+                    <input id="cfg-admin-username" type="text" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                        </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">旧密码</label>
+                    <input id="cfg-old-password" type="password" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">新密码</label>
+                    <input id="cfg-new-password" type="password" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                </div>
+                <button onclick="updatePassword()" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">修改密码</button>
+                        </div>
+
+            <!-- API Key Config -->
+            <div class="p-6 border rounded-lg bg-card space-y-4">
+                <h3 class="font-semibold text-lg">API 密钥配置</h3>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">当前 API Key</label>
+                    <input id="cfg-current-apikey" type="text" readonly disabled class="flex h-9 w-full rounded-md border border-input bg-muted px-3 py-1 text-sm text-muted-foreground">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">新 API Key</label>
+                    <input id="cfg-new-apikey" type="text" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                </div>
+                <button onclick="updateApiKey()" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">更新 API Key</button>
+                        </div>
+
+            <!-- Error Handling Config -->
+            <div class="p-6 border rounded-lg bg-card space-y-4">
+                <h3 class="font-semibold text-lg">错误处理配置</h3>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">错误封禁阈值 (Token 连续错误达到此次数后自动禁用)</label>
+                    <input id="cfg-error-ban" type="number" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                            </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">错误重试次数</label>
+                    <input id="cfg-error-retry" type="number" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                </div>
+                <button onclick="saveErrorConfig()" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">保存配置</button>
+                        </div>
+
+            <!-- Debug Config & Refresh Interval -->
+            <div class="p-6 border rounded-lg bg-card space-y-4">
+                <h3 class="font-semibold text-lg">调试与刷新配置</h3>
+                <div class="flex items-center justify-between">
+                    <label class="text-sm font-medium">启用调试模式</label>
+                    <input id="cfg-debug-enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300">
+                </div>
+                <div class="space-y-2 pt-4 border-t border-border">
+                    <label class="text-sm font-medium">zaitoken 刷新间隔 (秒)</label>
+                    <input id="cfg-refresh-interval" type="number" placeholder="默认 3600" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                </div>
+                <button onclick="saveDebugConfig()" class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">保存配置</button>
+            </div>
+        </div>
+
+        <!-- Request Logs -->
+        <div id="view-logs" class="hidden space-y-4">
+            <div class="flex justify-end">
+                <button onclick="loadLogs()" class="inline-flex items-center justify-center rounded-md border border-input bg-background h-9 px-4 text-sm font-medium hover:bg-accent hover:text-accent-foreground">刷新</button>
+                </div>
+            <div class="rounded-md border border-border overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                            <tr>
+                                <th class="h-10 px-4 align-middle">discordtoken</th>
+                                <th class="h-10 px-4 align-middle">zaitoken</th>
+                                <th class="h-10 px-4 align-middle">状态码</th>
+                                <th class="h-10 px-4 align-middle">耗时(秒)</th>
+                                <th class="h-10 px-4 align-middle">时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-table-body" class="divide-y divide-border">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Token Modal -->
+    <div id="modal-add-token" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-background rounded-lg shadow-lg w-full max-w-lg p-6 space-y-4">
+                <h3 class="text-lg font-semibold">添加 Token</h3>
+                <div class="space-y-2">
+                <label class="text-sm font-medium">Discord Token</label>
+                <textarea id="input-add-st" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="输入 Discord Token"></textarea>
+            </div>
+                <div class="space-y-2">
+                <label class="text-sm font-medium">备注 (可选)</label>
+                <input id="input-add-remark" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="document.getElementById('modal-add-token').classList.add('hidden')" class="px-4 py-2 text-sm font-medium rounded-md hover:bg-accent">取消</button>
+                <button onclick="submitAddToken()" class="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Helpers
+        const api = {
+            get: async (url) => {
+                const token = localStorage.getItem('adminToken');
+                const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) return window.location.href = '/login';
+                return res.json();
+            },
+            post: async (url, body) => {
+                const token = localStorage.getItem('adminToken');
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                if (res.status === 401) return window.location.href = '/login';
+                return res.json();
+            },
+            put: async (url, body) => {
+                const token = localStorage.getItem('adminToken');
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                if (res.status === 401) return window.location.href = '/login';
+                return res.json();
+            },
+            delete: async (url) => {
+                const token = localStorage.getItem('adminToken');
+                const res = await fetch(url, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) return window.location.href = '/login';
+                return res.json();
+            }
+        };
+
+        // Tabs
+        function switchTab(tab) {
+            ['tokens', 'settings', 'logs'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById(`tab-${t}`);
+                btn.classList.toggle('tab-active', t === tab);
+                btn.classList.toggle('tab-inactive', t !== tab);
+            });
+            if (tab === 'tokens') loadTokens();
+            if (tab === 'settings') loadSettings();
+            if (tab === 'logs') loadLogs();
+        }
+
+        // Functions
+        async function loadTokens() {
+            const data = await api.get('/api/tokens');
+            const stats = await api.get('/api/stats');
+            
+            document.getElementById('stat-total-tokens').textContent = stats.total_tokens || 0;
+
+            const tbody = document.getElementById('tokens-table-body');
+            tbody.innerHTML = data.map(t => {
+                // Calculate remaining refresh time
+                let remaining = '-';
+                if (t.at_expires) {
+                    const diff = new Date(t.at_expires) - new Date();
+                    if (diff > 0) {
+                        const mins = Math.floor(diff / 60000);
+                        const hours = Math.floor(mins / 60);
+                        remaining = hours > 0 ? `${hours}小时` : `${mins}分钟`;
+                    } else {
+                        remaining = '已过期';
+                    }
+                }
+
+                return `
+                <tr>
+                    <td class="px-4 py-2 font-mono text-xs max-w-[150px] truncate" title="${t.st}">${t.st ? t.st.substring(0, 20) + '...' : '-'}</td>
+                    <td class="px-4 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${t.is_active ? '活跃' : '禁用'}</span></td>
+                    <td class="px-4 py-2 text-xs text-muted-foreground max-w-[150px] truncate" title="${t.zai_token || 'None'}">${t.zai_token ? '已获取' : '无'}</td>
+                    <td class="px-4 py-2 text-xs">${remaining}</td>
+                    <td class="px-4 py-2 text-xs">${t.user_paygate_tier === 'PAYGATE_TIER_NOT_PAID' ? '普通' : '会员'}</td>
+                    <td class="px-4 py-2 text-xs">${t.error_count || 0}</td>
+                    <td class="px-4 py-2 text-xs text-muted-foreground">${t.remark || '-'}</td>
+                    <td class="px-4 py-2 text-right space-x-1">
+                        <button onclick="toggleToken(${t.id}, ${t.is_active})" class="text-xs text-blue-600 hover:underline">${t.is_active ? '禁用' : '启用'}</button>
+                        <button onclick="deleteToken(${t.id})" class="text-xs text-red-600 hover:underline">删除</button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        async function submitAddToken() {
+            const st = document.getElementById('input-add-st').value.trim();
+            const remark = document.getElementById('input-add-remark').value.trim();
+            if (!st) return alert('请输入 Discord Token');
+            
+            const res = await api.post('/api/tokens', { st, remark });
+            if (res.success) {
+                document.getElementById('modal-add-token').classList.add('hidden');
+                document.getElementById('input-add-st').value = '';
+                loadTokens();
+            } else {
+                alert(res.message || '添加失败');
+            }
+        }
+
+        function openAddTokenModal() {
+            document.getElementById('modal-add-token').classList.remove('hidden');
+        }
+
+        async function toggleToken(id, currentStatus) {
+            const action = currentStatus ? 'disable' : 'enable';
+            await api.post(`/api/tokens/${id}/${action}`, {});
+            loadTokens();
+        }
+
+        async function deleteToken(id) {
+            if (!confirm('确定删除?')) return;
+            await api.delete(`/api/tokens/${id}`);
+            loadTokens();
+        }
+
+        // Settings
+        async function loadSettings() {
+            const cfg = await api.get('/api/admin/config');
+            document.getElementById('cfg-admin-username').value = cfg.admin_username || '';
+            document.getElementById('cfg-current-apikey').value = cfg.api_key || '';
+            document.getElementById('cfg-error-ban').value = cfg.error_ban_threshold || 3;
+            document.getElementById('cfg-error-retry').value = cfg.error_retry_count || 3;
+            document.getElementById('cfg-debug-enabled').checked = cfg.debug_enabled || false;
+            document.getElementById('cfg-refresh-interval').value = cfg.token_refresh_interval || 3600;
+        }
+
+        async function updatePassword() {
+            const username = document.getElementById('cfg-admin-username').value;
+            const old_password = document.getElementById('cfg-old-password').value;
+            const new_password = document.getElementById('cfg-new-password').value;
+            if (!old_password || !new_password) return alert('请输入密码');
+            
+            const res = await api.post('/api/admin/password', { username, old_password, new_password });
+            if (res.success) {
+                alert('密码已修改，请重新登录');
+                logout();
+            } else {
+                alert(res.detail || '修改失败');
+            }
+        }
+
+        async function updateApiKey() {
+            const new_api_key = document.getElementById('cfg-new-apikey').value;
+            if (!new_api_key) return alert('请输入新 API Key');
+            const res = await api.post('/api/admin/apikey', { new_api_key });
+            if (res.success) loadSettings();
+        }
+
+        async function saveErrorConfig() {
+            const error_ban_threshold = parseInt(document.getElementById('cfg-error-ban').value);
+            const error_retry_count = parseInt(document.getElementById('cfg-error-retry').value);
+            await api.post('/api/admin/config', { error_ban_threshold, error_retry_count });
+            alert('保存成功');
+        }
+
+        async function saveDebugConfig() {
+            const enabled = document.getElementById('cfg-debug-enabled').checked;
+            const token_refresh_interval = parseInt(document.getElementById('cfg-refresh-interval').value);
+            await api.post('/api/admin/debug', { enabled, token_refresh_interval });
+            alert('保存成功');
+        }
+
+        // Logs
+        async function loadLogs() {
+            const logs = await api.get('/api/logs?limit=50');
+            const tbody = document.getElementById('logs-table-body');
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td class="px-4 py-2 font-mono text-xs max-w-[150px] truncate" title="${l.token_email || '-'}">${l.token_email || '-'}</td>
+                    <td class="px-4 py-2 text-xs text-muted-foreground">-</td>
+                    <td class="px-4 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${l.status_code == 200 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${l.status_code}</span></td>
+                    <td class="px-4 py-2 text-xs">${l.duration.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-xs text-muted-foreground">${new Date(l.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/login';
+        }
+
+        // Init
+        if (!localStorage.getItem('adminToken')) window.location.href = '/login';
+        loadTokens();
+    </script>
+</body>
+</html>
