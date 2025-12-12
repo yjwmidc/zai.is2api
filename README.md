@@ -2,6 +2,12 @@
 
 Zai2API 是一个功能完整的 OpenAI 兼容 API 服务网关。它允许你管理 Discord Token，自动将其转换为 zai.is 的访问凭证，并提供标准的 OpenAI 接口供第三方客户端调用。
 
+## 轻量化版本
+
+如果你只需要“自动刷新 Discord Token 并推送到NewAPI”这一精简能力，可以使用仓库内的 `自动刷新token推送到newapi` 目录：
+
+- `自动刷新token推送到newapi` 为轻量化版本，专注于 Token 自动刷新与推送，适合资源受限或仅需 Token 分发的场景；
+
 ## 功能特性
 
 *   **多 Token 管理**：支持批量添加、删除、禁用 Discord Token。
@@ -51,6 +57,7 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
+
 
 ## 配置说明
 
