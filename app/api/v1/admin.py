@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Body, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Body, Response, Cookie, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_, delete
 from pydantic import BaseModel
@@ -204,7 +204,7 @@ class AccountResponse(BaseModel):
         from_attributes = True
 
 @router.post("/accounts", response_model=AccountResponse, dependencies=[Depends(verify_admin)])
-async def create_account(account: AccountCreate, db: AsyncSession = Depends(get_db)):
+async def create_account(account: AccountCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     # Check if exists
     stmt = select(Account).where(Account.discord_token == account.discord_token)
     result = await db.execute(stmt)
@@ -217,7 +217,28 @@ async def create_account(account: AccountCreate, db: AsyncSession = Depends(get_
     db.add(new_account)
     await db.commit()
     await db.refresh(new_account)
+
+    # Trigger token refresh immediately
+    from app.services.token_manager import refresh_account_token
+    # Since refresh_account_token needs a session, and we are in async context,
+    # we can try to do it here or via background task.
+    # But background task needs a new session.
+    # Let's try to do it in background task wrapper
+    background_tasks.add_task(trigger_initial_refresh, new_account.id)
+
     return new_account
+
+async def trigger_initial_refresh(account_id: int):
+    # We need to import SessionLocal here to avoid circular imports if defined at top
+    from app.db.session import SessionLocal
+    from app.services.token_manager import refresh_account_token
+    
+    async with SessionLocal() as session:
+        stmt = select(Account).where(Account.id == account_id)
+        result = await session.execute(stmt)
+        account = result.scalar_one_or_none()
+        if account:
+            await refresh_account_token(session, account)
 
 @router.get("/accounts", response_model=list[AccountResponse], dependencies=[Depends(verify_admin)])
 async def list_accounts(db: AsyncSession = Depends(get_db)):
