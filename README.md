@@ -1,4 +1,4 @@
-<h2 align="center"> 注意：zai.is新增 <code>x-zai-darkknight</code> 请求头验证，当前版本已失效。</h2>
+<h2 align="center"> 注意：zai.is新增 <code>x-zai-darkknight</code> 请求头验证，当前版本已失效。或者使用 https://github.com/WangYiHeng-47/zai.is- </h2>
 
 # Zai2API
 
